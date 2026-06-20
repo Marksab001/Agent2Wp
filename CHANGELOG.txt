@@ -1,0 +1,21 @@
+= Agent2Wp 2.0.0 =
+
+Release date: 2026-06-20
+Developer: Taibur Rahaman (https://github.com/Taibur-Rahaman)
+
+* New: Agent2Wp 2.0 — independent product identity with Expert Suite built in.
+* New: Expert Suite admin page — lifetime active status, no license server.
+* New: Content tools — create-post, get-post, list-posts, update-post, delete-post.
+* New: 14+ Expert specialization packs (page builders, commerce, custom fields, dev tools).
+* New: Session memory skill and Context integration.
+* Removed: External update checker and license server calls.
+* Removed: Pro upsells and paid-tier gating.
+
+= Expert Suite specializations =
+
+Auto-loaded when the related plugin is detected:
+
+* Page builders: Elementor, Bricks, Divi, Breakdance, WPBakery, Etch, GeneratePress, Kadence, Mosaic
+* Custom fields: ACF, JetEngine, Meta Box, Pods, ACPT, ASE
+* Commerce: WooCommerce
+* Dev: Code Snippets

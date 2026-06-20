@@ -1,0 +1,87 @@
+Agent2Wp Restricted Source License (RSL) v1.0
+================================================
+
+Copyright (c) 2026 Taibur Rahaman <https://github.com/Taibur-Rahaman>
+All rights reserved except as expressly granted below.
+
+IMPORTANT — READ BEFORE COPYING, FORKING, OR USING THIS SOFTWARE
+----------------------------------------------------------------
+
+This repository is NOT public domain. This is NOT a permissive open-source
+license. Unauthorized copying, redistribution, rebranding, or commercial use
+may violate copyright and trademark law.
+
+If you did not receive explicit written permission from the copyright holder,
+you MUST NOT:
+
+  1. Copy, mirror, scrape, or republish this software (in whole or in part)
+     outside GitHub's normal fork mechanism.
+  2. Remove, alter, or obscure copyright notices, license files, or this warning.
+  3. Use the names "Agent2Wp", related branding, logos, or trademarks without
+     written permission.
+  4. Sell, sublicense, or distribute this software as your own product.
+  5. Offer this software (or a derivative) as a hosted, managed, or SaaS
+     service without a separate commercial license from the copyright holder.
+  6. Use this software in a commercial product or for commercial benefit without
+     a separate commercial license from the copyright holder.
+  7. Combine this software with proprietary code and distribute the result
+     without complying with all applicable license terms.
+
+PERMITTED USES (without a separate commercial agreement)
+--------------------------------------------------------
+
+You MAY:
+
+  a. View and study the source code on GitHub.
+  b. Create a GitHub fork that retains all copyright notices, LICENSE files,
+     COPYRIGHT.md, and NOTICE unchanged.
+  c. Submit pull requests or patches back to the official repository, which
+     will be licensed under these same terms if merged.
+  d. Run the software privately for non-commercial evaluation, development,
+     or staging on systems you control.
+
+UPSTREAM AGPL COMPONENTS
+------------------------
+
+Portions of this software are derived from Novamira (Ovation S.r.l.) and other
+third-party works identified in NOTICE. Those portions remain licensed under
+the GNU Affero General Public License v3.0 or later. See LICENSE-AGPL-3.0.txt.
+
+Where Novamira-derived or other AGPL-licensed code is included:
+
+  - You must comply with AGPL obligations for those portions (including source
+    disclosure when modified versions are used over a network).
+  - This RSL does not restrict rights that AGPL grants for those specific
+    upstream portions.
+  - For all other original Agent2Wp code authored by Taibur Rahaman, this RSL
+    applies and is more restrictive than AGPL.
+
+COMMERCIAL LICENSING
+--------------------
+
+Commercial use, white-label deployment, redistribution, or SaaS offerings require
+a separate written commercial license. Contact the copyright holder via GitHub:
+
+  https://github.com/Taibur-Rahaman/Agent2Wp/issues
+
+NO WARRANTY
+-----------
+
+THIS SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT. IN NO EVENT SHALL THE COPYRIGHT
+HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY ARISING FROM USE
+OF THIS SOFTWARE.
+
+TERMINATION
+-----------
+
+Any use that violates this license terminates your rights immediately. Upon
+termination you must destroy all copies in your possession or control.
+
+GOVERNING TERMS
+---------------
+
+By accessing, cloning, forking, downloading, or using this repository you
+acknowledge that you have read COPYRIGHT.md, NOTICE, and this license and agree
+to be bound by them.

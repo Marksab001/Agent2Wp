@@ -1,0 +1,27 @@
+{
+	"name": "taibur-rahaman/agent2wp",
+	"description": "Agent2Wp — Expert MCP bridge for WordPress with full Expert Suite",
+	"type": "wordpress-plugin",
+	"license": "proprietary",
+	"authors": [
+		{
+			"name": "Taibur Rahaman",
+			"homepage": "https://github.com/Taibur-Rahaman"
+		}
+	],
+	"require": {
+		"php": ">=8.0",
+		"automattic/jetpack-autoloader": "^5.0",
+		"wordpress/mcp-adapter": "^0.5.0"
+	},
+	"require-dev": {
+		"carthage-software/mago": "^1.24.0",
+		"php-stubs/wordpress-stubs": "^6.9"
+	},
+	"config": {
+		"allow-plugins": {
+			"automattic/jetpack-autoloader": true
+		},
+		"sort-packages": true
+	}
+}

@@ -1,0 +1,33 @@
+.mcp.json
+/vendor
+composer.phar
+agent2wp-visual/dist/
+*.swp
+
+# IDE
+.idea
+.vscode
+
+# Codex 
+.codex
+
+# Internal docs
+/docs/
+
+# Claude Code sandbox artifacts
+.bash_profile
+.bashrc
+.gitconfig
+.gitmodules
+.profile
+.ripgreprc
+.zprofile
+.zshrc
+HEAD
+config
+hooks
+objects
+refs
+.claude
+.playwright-mcp/
+includes/skills/dev-mock.php

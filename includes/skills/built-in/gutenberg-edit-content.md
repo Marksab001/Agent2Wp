@@ -1,0 +1,82 @@
+---
+name: gutenberg-edit-content
+description: Create or edit WordPress content in the native Gutenberg/block editor using Agent2Wp Gutenberg abilities. Activate when the user asks to build, rebuild, migrate, or update a post, page, template, template part, or navigation using Gutenberg/native blocks.
+---
+
+# Editing Gutenberg Content
+
+Use this playbook for native WordPress block editor work. Gutenberg static
+blocks need the browser JavaScript serializer before queued content becomes
+live, so the Agent2Wp Block Editor Queue admin page is part of the workflow.
+
+## Start Here
+
+1. Call `agent2wp/gutenberg-get-finalizer-runtime`.
+2. If `finalizer_runtime.online` is false, ask the user to open
+   `finalizer_runtime.dashboard_url` in `wp-admin` and keep that page open
+   while you work. Continue planning and reading content, but do not assume a
+   queued static/native block batch can finalize until the runtime is online
+   and able to process queued changes.
+3. If `finalizer_runtime.online` is true, tell the user to keep the queue
+   page open. If later batch responses show `online=false`, the page was
+   closed, logged out, or lost its session; ask the user to reopen it.
+4. Use `finalizer_runtime.sse_url` with `curl -N` for waiting. The stream
+   sends short-lived status events and may ask you to reconnect before PHP
+   execution limits apply. Use `finalizer_runtime.poll_url` with plain `curl`
+   as the fallback. Do not repeatedly call MCP abilities just to wait for the
+   page to open or for a batch to finish.
+
+## Read Before Writing
+
+- Use `agent2wp/gutenberg-get-content` for the target. It reads live
+  `post_content`, not queued pending specs.
+- If `pending_gutenberg_change` is present, inspect the named batch with
+  `agent2wp/gutenberg-get-pending-batch` before editing. Do not stack another
+  pending change on the same target unless the user confirms the old batch
+  should be canceled.
+
+## Compose With Registered Blocks
+
+Build content from registered blocks — core *and* third-party — supplied as
+`{name, attributes, innerBlocks}`. The finalizer serializes each block with its
+own editor JavaScript, so never hand-write a block's HTML.
+
+- Core blocks: `core/heading` (set `level`), `core/paragraph`, `core/list` +
+  `core/list-item`, `core/image`, `core/quote`, `core/buttons` + `core/button`,
+  `core/table`, `core/code`, `core/separator`. Express layout and nesting with
+  `core/group` / `core/columns` + `core/column` and `innerBlocks`, not HTML.
+- Third-party blocks (WooCommerce, Kadence, ACF, etc.): if a registered block
+  exists for what you are building, use it — pass its `name` and `attributes`
+  instead of reproducing its output. To discover the available block names and
+  their attributes, query the registry, e.g. via `execute-php`:
+  `WP_Block_Type_Registry::get_instance()->get_all_registered()`.
+- Use `core/html` only for a small fragment with no registered-block
+  equivalent, and keep it minimal. Never wrap whole sections or the entire post
+  in `core/html` or a classic/freeform block: raw-HTML blocks are not visually
+  editable and defeat native editing.
+
+## Choose the Write Path
+
+- Use `agent2wp/gutenberg-write-content` only when every block is a registered
+  `agent2wp/*` dynamic-only block. This writes live content directly.
+- For static/native blocks, use the pending queue:
+  1. Call `agent2wp/gutenberg-add-pending-change`. Omit `batch_id` for the
+     first target, then reuse the returned `batch_id` for the rest of the
+     same user-visible change.
+  2. Call `agent2wp/gutenberg-enable-batch-finalization` after all changes
+     are queued.
+  3. If `finalizer_runtime.online` and `can_finalize_batch` are true, stream
+     `finalizer_runtime.sse_url` with `curl -N` until the batch reaches
+     `finalized`, `failed`, or `conflicted`.
+  4. If the runtime is offline or becomes offline while polling, ask the user
+     to reopen the generic Block Editor Queue page and keep it open. The
+     returned `finalization_url` points to the same generic page.
+
+## Completion
+
+Queued Gutenberg changes are not live until the batch reports `finalized`.
+Item status `prepared` only means the browser serializer has staged canonical
+content for that item; it is not live content.
+After finalization, re-read the edited target with
+`agent2wp/gutenberg-get-content` and verify the saved block tree matches the
+intended structure.

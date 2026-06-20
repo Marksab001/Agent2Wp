@@ -1,0 +1,522 @@
+/*
+ * Abilities Hub admin styles. Mirrors Skills and Sandbox: collapsible card
+ * sections, compact rows, restrained pills, and hover-revealed row actions.
+ *
+ * Design tokens are scoped to .agent2wp-hub so they cascade to every section
+ * without leaking into the rest of wp-admin.
+ */
+
+.agent2wp-hub {
+    /* Text */
+    --nm-text: #1d2327;
+    --nm-text-soft: #646970;
+    --nm-muted: #52525b;
+    --nm-muted-2: #71717a;
+    --nm-muted-3: #a1a1aa;
+    --nm-hint: #d4d4d8;
+
+    /* Surfaces & borders. Greys step up by weight so the layers stay distinct:
+     * rows (white / faint stripe) < row hover < category bar < category hover. */
+    --nm-bg: #fff;
+    --nm-bg-hover: #fafafa;
+    --nm-bg-rail: #f4f4f5;
+    --nm-row-stripe: #fafafa;
+    --nm-row-hover: #f0f1f2;
+    --nm-cat-bg: #ececef;
+    --nm-cat-hover: #e3e3e8;
+    --nm-border: #c3c4c7;
+    --nm-border-soft: #e4e4e7;
+    --nm-border-faint: #f4f4f5;
+
+    /* Pill palettes */
+    --nm-pill-bg: #f4f4f5;
+    --nm-pill-text: #52525b;
+    --nm-pill-mcp-bg: #eff6ff;
+    --nm-pill-mcp-text: #1d4ed8;
+    --nm-pill-on-bg: #dcfce7;
+    --nm-pill-on-text: #166534;
+    --nm-pill-off-bg: #fee2e2;
+    --nm-pill-off-text: #b32d2e;
+    --nm-pill-protected-bg: #fef3c7;
+    --nm-pill-protected-text: #92400e;
+
+    /* Focus, radius, shadow */
+    --nm-focus: #2271b1;
+    --nm-radius-sm: 3px;
+    --nm-radius: 4px;
+    --nm-radius-lg: 6px;
+    --nm-shadow: 0 1px 1px rgba(0, 0, 0, 0.03);
+
+    /* Spacing scale (4 / 8 / 12 / 16 / 24) */
+    --nm-space-1: 4px;
+    --nm-space-2: 8px;
+    --nm-space-3: 12px;
+    --nm-space-4: 16px;
+    --nm-space-6: 24px;
+
+    /* Motion */
+    --nm-transition: 120ms ease;
+}
+
+.agent2wp-hub .wrap-title {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--nm-space-3);
+    margin: var(--nm-space-3) 0 20px;
+}
+
+.agent2wp-hub .wrap-title h1 {
+    margin: 0;
+    font-size: 23px;
+    font-weight: 400;
+    color: var(--nm-text);
+}
+
+.agent2wp-hub .wrap-title .description {
+    max-width: 1200px;
+    margin: var(--nm-space-2) 0 0;
+    color: var(--nm-text-soft);
+}
+
+.agent2wp-hub-section {
+    background: var(--nm-bg);
+    border: 1px solid var(--nm-border);
+    border-radius: var(--nm-radius-lg);
+    box-shadow: var(--nm-shadow);
+    overflow: hidden;
+    margin-bottom: 20px;
+}
+
+/* Boundary between Agent2Wp's abilities and the other plugins' groups. */
+.agent2wp-hub-divider {
+    display: flex;
+    align-items: center;
+    gap: var(--nm-space-3);
+    margin: 28px 0 var(--nm-space-3);
+    padding: 0;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--nm-muted-2);
+}
+
+.agent2wp-hub-divider::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--nm-border-soft);
+}
+
+/* Provider header (group level) */
+.agent2wp-hub-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--nm-space-4) var(--nm-space-6);
+    border-bottom: 1px solid var(--nm-border-soft);
+    cursor: pointer;
+    user-select: none;
+    list-style: none;
+}
+
+.agent2wp-hub-header::-webkit-details-marker {
+    display: none;
+}
+
+.agent2wp-hub-header:hover {
+    background: var(--nm-bg-hover);
+}
+
+.agent2wp-hub-header:focus-visible {
+    outline: 2px solid var(--nm-focus);
+    outline-offset: -2px;
+}
+
+.agent2wp-hub-header::after {
+    content: "";
+    flex: none;
+    width: 7px;
+    height: 7px;
+    margin-left: var(--nm-space-3);
+    border-right: 2px solid var(--nm-muted-2);
+    border-bottom: 2px solid var(--nm-muted-2);
+    transform: rotate(-45deg);
+    transition: transform var(--nm-transition);
+}
+
+.agent2wp-hub-section[open] > .agent2wp-hub-header::after {
+    transform: rotate(45deg);
+}
+
+.agent2wp-hub-section:not([open]) > .agent2wp-hub-header {
+    border-bottom: none;
+}
+
+.agent2wp-hub-header h2 {
+    margin: 0 auto 0 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--nm-text);
+    letter-spacing: -0.01em;
+}
+
+.agent2wp-hub-header h2 .count {
+    margin-left: var(--nm-space-2);
+    color: var(--nm-muted-2);
+    font-weight: 400;
+    font-size: 13px;
+}
+
+/* Category sub-section */
+.agent2wp-hub-subsection {
+    border-top: 1px solid var(--nm-border-faint);
+}
+
+.agent2wp-hub-subsection:first-of-type {
+    border-top: none;
+}
+
+.agent2wp-hub-subheader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--nm-space-2) var(--nm-space-6);
+    background: var(--nm-cat-bg);
+    cursor: pointer;
+    user-select: none;
+    list-style: none;
+}
+
+.agent2wp-hub-subheader::-webkit-details-marker {
+    display: none;
+}
+
+.agent2wp-hub-subheader:hover {
+    background: var(--nm-cat-hover);
+}
+
+.agent2wp-hub-subheader:focus-visible {
+    outline: 2px solid var(--nm-focus);
+    outline-offset: -2px;
+}
+
+.agent2wp-hub-subheader h3 {
+    margin: 0 auto 0 0;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--nm-muted-2);
+}
+
+.agent2wp-hub-subheader h3 .count {
+    margin-left: var(--nm-space-2);
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--nm-muted-3);
+}
+
+.agent2wp-hub-subheader::after {
+    content: "";
+    flex: none;
+    width: 6px;
+    height: 6px;
+    margin-left: var(--nm-space-3);
+    border-right: 2px solid var(--nm-muted-3);
+    border-bottom: 2px solid var(--nm-muted-3);
+    transform: rotate(-45deg);
+    transition: transform var(--nm-transition);
+}
+
+.agent2wp-hub-subsection[open] > .agent2wp-hub-subheader::after {
+    transform: rotate(45deg);
+}
+
+/* "All disabled" pill in a provider/category header. The base .pill rules are
+ * scoped to row pill containers, so the header variant is styled on its own. */
+.agent2wp-hub-header h2 .agent2wp-hub-alloff,
+.agent2wp-hub-subheader h3 .agent2wp-hub-alloff {
+    margin-left: var(--nm-space-2);
+    padding: 2px var(--nm-space-2);
+    border-radius: var(--nm-radius-sm);
+    background: var(--nm-pill-off-bg);
+    color: var(--nm-pill-off-text);
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.5;
+    text-transform: none;
+    letter-spacing: 0;
+    vertical-align: middle;
+}
+
+/* Select-all checkbox in section headers. The heading takes the auto margin so
+ * the chevron stays pinned right while checkbox + title group on the left. */
+.agent2wp-hub-select-all {
+    display: flex;
+    align-items: center;
+    margin: 0 var(--nm-space-3) 0 0;
+}
+
+.agent2wp-hub-select-all input[type="checkbox"] {
+    margin: 0;
+}
+
+/* Rows */
+.agent2wp-hub-rows {
+    display: block;
+}
+
+.agent2wp-hub-row {
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr) max-content max-content;
+    align-items: center;
+    gap: var(--nm-space-3);
+    min-height: 40px;
+    padding: var(--nm-space-2) var(--nm-space-6);
+    border-bottom: 1px solid var(--nm-border-faint);
+    transition: background var(--nm-transition);
+}
+
+/* Only an expanded row needs its controls pinned to the top, next to the slug;
+ * collapsed rows (the common case) keep everything vertically centered. */
+.agent2wp-hub-row:has(.agent2wp-hub-main[open]) {
+    align-items: start;
+}
+
+.agent2wp-hub-row:last-child {
+    border-bottom: none;
+}
+
+/* Zebra striping (restarts inside each category). The stripe is far lighter
+ * than the category bar so rows never read as headers; hover steps darker
+ * still, staying visible over both white and striped rows. */
+.agent2wp-hub-row:nth-child(even) {
+    background: var(--nm-row-stripe);
+}
+
+.agent2wp-hub-row:hover {
+    background: var(--nm-row-hover);
+}
+
+.agent2wp-hub-row.is-off .agent2wp-hub-main .slug,
+.agent2wp-hub-row.is-off .agent2wp-hub-main .desc {
+    color: var(--nm-muted-3);
+}
+
+/* While an AJAX toggle is in flight, dim the row and block further clicks. */
+.agent2wp-hub-row.is-busy {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.agent2wp-hub-select {
+    display: flex;
+    align-items: center;
+    margin: 0;
+}
+
+.agent2wp-hub-select input[type="checkbox"] {
+    margin: 0;
+}
+
+.agent2wp-hub-main {
+    min-width: 0;
+}
+
+.agent2wp-hub-main--plain,
+.agent2wp-hub-summary {
+    display: flex;
+    align-items: baseline;
+    gap: var(--nm-space-2);
+    overflow: hidden;
+    min-width: 0;
+}
+
+.agent2wp-hub-summary {
+    cursor: pointer;
+    user-select: none;
+    list-style: none;
+}
+
+.agent2wp-hub-summary::-webkit-details-marker {
+    display: none;
+}
+
+.agent2wp-hub-summary:hover .slug {
+    text-decoration: underline;
+    text-decoration-color: var(--nm-hint);
+    text-underline-offset: 2px;
+}
+
+.agent2wp-hub-summary:focus-visible {
+    outline: 2px solid var(--nm-focus);
+    outline-offset: 2px;
+}
+
+.agent2wp-hub-main[open] > .agent2wp-hub-summary .desc {
+    display: none;
+}
+
+.agent2wp-hub-detail {
+    padding: var(--nm-space-1) 0 var(--nm-space-2);
+}
+
+.agent2wp-hub-detail .desc-full {
+    margin: 0;
+    max-width: 70ch;
+    color: var(--nm-muted);
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.agent2wp-hub-main .slug {
+    flex: none;
+    font-family: ui-monospace, "DM Mono", "JetBrains Mono", Consolas, monospace;
+    font-size: 13px;
+    color: var(--nm-text);
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.agent2wp-hub-main .desc {
+    flex: 0 1 auto;
+    max-width: 70ch;
+    color: var(--nm-muted-2);
+    font-size: 13px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+
+.agent2wp-hub-main .desc::before {
+    content: "-";
+    margin-right: 6px;
+    color: var(--nm-hint);
+}
+
+/* Pills */
+.agent2wp-hub-pills {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--nm-space-1);
+    min-height: 26px;
+}
+
+.agent2wp-hub-pills .pill {
+    font-size: 11px;
+    padding: 2px var(--nm-space-2);
+    border-radius: var(--nm-radius-sm);
+    background: var(--nm-pill-bg);
+    color: var(--nm-pill-text);
+    font-weight: 500;
+    line-height: 1.5;
+}
+
+.agent2wp-hub-pills .pill.mcp {
+    background: var(--nm-pill-mcp-bg);
+    color: var(--nm-pill-mcp-text);
+}
+
+.agent2wp-hub-pills .pill.status.is-enabled {
+    background: var(--nm-pill-on-bg);
+    color: var(--nm-pill-on-text);
+}
+
+.agent2wp-hub-pills .pill.status.is-disabled {
+    background: var(--nm-pill-off-bg);
+    color: var(--nm-pill-off-text);
+}
+
+.agent2wp-hub-pills .pill.protected {
+    background: var(--nm-pill-protected-bg);
+    color: var(--nm-pill-protected-text);
+}
+
+/* Row actions (revealed on hover/focus) */
+.agent2wp-hub-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--nm-space-1);
+    margin: 0;
+    min-height: 26px;
+    opacity: 0;
+    transition: opacity var(--nm-transition);
+}
+
+.agent2wp-hub-row:hover .agent2wp-hub-actions,
+.agent2wp-hub-row:focus-within .agent2wp-hub-actions {
+    opacity: 1;
+}
+
+.agent2wp-hub-actions form {
+    margin: 0;
+}
+
+.agent2wp-hub .action-btn {
+    background: transparent;
+    border: 0;
+    padding: var(--nm-space-1) 10px;
+    border-radius: var(--nm-radius);
+    cursor: pointer;
+    color: var(--nm-muted);
+    font-size: 12px;
+    text-decoration: none;
+    line-height: 1.4;
+    transition: background var(--nm-transition), color var(--nm-transition);
+    outline: none;
+    box-shadow: none;
+}
+
+.agent2wp-hub .action-btn:focus {
+    outline: none;
+    box-shadow: none;
+}
+
+.agent2wp-hub .action-btn:focus-visible {
+    outline: 2px solid var(--nm-focus);
+    outline-offset: 1px;
+}
+
+.agent2wp-hub .action-btn:hover,
+.agent2wp-hub .action-btn:focus {
+    background: var(--nm-bg-rail);
+    color: var(--nm-text);
+}
+
+/* Bulk action toolbars */
+.agent2wp-hub .tablenav {
+    height: auto;
+    margin: var(--nm-space-3) 0;
+}
+
+.agent2wp-hub .tablenav.bottom {
+    margin-top: 0;
+}
+
+.agent2wp-hub .bulkactions {
+    display: flex;
+    align-items: center;
+    gap: var(--nm-space-2);
+}
+
+@media (max-width: 1200px) {
+    .agent2wp-hub-row {
+        grid-template-columns: 28px minmax(0, 1fr) minmax(220px, auto);
+    }
+
+    .agent2wp-hub-pills,
+    .agent2wp-hub-actions {
+        grid-column: 2 / -1;
+        justify-content: flex-start;
+    }
+
+    .agent2wp-hub-actions {
+        opacity: 1;
+    }
+}

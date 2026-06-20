@@ -1,0 +1,39 @@
+Agent2Wp — Third-Party and Upstream Notices
+============================================
+
+Agent2Wp includes code derived from open-source projects. This file satisfies
+attribution requirements under their respective licenses.
+
+Copyright
+---------
+Agent2Wp original code is Copyright (c) 2026 Taibur Rahaman and is licensed
+under the Agent2Wp Restricted Source License v1.0 (see LICENSE and COPYRIGHT.md).
+Unauthorized copying or commercial use is prohibited without written permission.
+
+Upstream (AGPL-3.0-or-later)
+------------------------------
+Portions of this software are derived from Novamira (Ovation S.r.l.), licensed
+under the GNU Affero General Public License v3.0 or later. Full text:
+LICENSE-AGPL-3.0.txt — Source: https://github.com/use-novamira/novamira
+
+Where Novamira-derived code is present, AGPL copyleft obligations apply to
+those portions (including network-use source disclosure for modified versions).
+
+Bundled Dependencies
+--------------------
+- wordpress/mcp-adapter — WordPress MCP Adapter
+- automattic/jetpack-autoloader — Composer autoloader
+
+Skill Creator
+-------------
+The built-in skill-creator guidance adapts Anthropic's skill-creator template
+(Apache-2.0). Original: https://github.com/anthropics/skills
+
+Primary Developer
+-----------------
+Taibur Rahaman — https://github.com/Taibur-Rahaman
+
+Commercial Licensing
+--------------------
+For commercial use, redistribution, or SaaS deployment contact the copyright
+holder via https://github.com/Taibur-Rahaman/Agent2Wp/issues

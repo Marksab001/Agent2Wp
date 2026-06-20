@@ -1,0 +1,1120 @@
+<?php
+
+// SPDX-FileCopyrightText: 2026 Taibur Rahaman <https://github.com/Taibur-Rahaman>
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+declare(strict_types=1);
+
+/**
+ * Shared helper functions for Agent2Wp.
+ */
+
+if (!defined('ABSPATH')) {
+    exit();
+}
+
+/**
+ * Resolve a filesystem path, ensuring it stays within the allowed base directory.
+ *
+ * @param string $path       The path to resolve. Relative paths are prepended with ABSPATH.
+ * @param bool   $must_exist Whether the path must already exist.
+ * @return string|WP_Error   The resolved absolute path, or WP_Error on failure.
+ */
+function agent2wp_resolve_path($path, $must_exist = false)
+{
+    // Prepend ABSPATH to relative paths.
+    if (!str_starts_with($path, '/') && !str_starts_with($path, '\\')) {
+        $path = ABSPATH . $path;
+    }
+
+    /**
+     * Filter the base directory for filesystem operations.
+     * Return false to disable the base directory restriction entirely.
+     *
+     * @param string $base_dir The base directory. Defaults to ABSPATH.
+     */
+    /** @var string|false $base_dir */
+    $base_dir = apply_filters('agent2wp_filesystem_base_dir', ABSPATH);
+
+    // Resolve path that may not exist yet via parent directory.
+    $resolved = agent2wp_resolve_candidate_path($path);
+
+    // For paths that must exist, override with realpath.
+    if ($must_exist) {
+        $resolved = realpath($path);
+        if ($resolved === false) {
+            return new WP_Error('path_not_found', sprintf(__('Path does not exist: %s', domain: 'agent2wp'), $path));
+        }
+    }
+
+    // Enforce base directory restriction.
+    if ($base_dir !== false) {
+        $real_base = realpath($base_dir);
+        if ($real_base === false) {
+            $real_base = rtrim($base_dir, characters: '/\\');
+        }
+
+        if (!agent2wp_path_is_within_directory($resolved, $real_base)) {
+            return new WP_Error('path_outside_base', sprintf(
+                __('Path "%s" is outside the allowed base directory "%s".', domain: 'agent2wp'),
+                $resolved,
+                $real_base,
+            ));
+        }
+    }
+
+    return $resolved;
+}
+
+/**
+ * Resolve an absolute candidate path while preserving a non-existing final path.
+ */
+function agent2wp_resolve_candidate_path(string $path): string
+{
+    $resolved_parent = realpath(dirname($path));
+    if ($resolved_parent !== false) {
+        return agent2wp_normalize_absolute_path($resolved_parent . DIRECTORY_SEPARATOR . basename($path));
+    }
+
+    return agent2wp_normalize_missing_path($path);
+}
+
+/**
+ * Normalize a path with missing parents from the nearest existing ancestor.
+ */
+function agent2wp_normalize_missing_path(string $path): string
+{
+    /** @var list<string> $tail */
+    $tail = [basename($path)];
+    $cursor = dirname($path);
+    $found_existing_ancestor = false;
+
+    while ($cursor !== '' && $cursor !== '.' && $cursor !== dirname($cursor)) {
+        $real_cursor = realpath($cursor);
+        if ($real_cursor !== false) {
+            $tail[] = $real_cursor;
+            $found_existing_ancestor = true;
+            break;
+        }
+
+        $tail[] = basename($cursor);
+        $cursor = dirname($cursor);
+    }
+
+    if (!$found_existing_ancestor) {
+        $real_cursor = realpath($cursor);
+        if ($real_cursor !== false) {
+            $tail[] = $real_cursor;
+        }
+        if ($real_cursor === false && str_starts_with($path, DIRECTORY_SEPARATOR)) {
+            $tail[] = DIRECTORY_SEPARATOR;
+        }
+    }
+
+    return agent2wp_normalize_absolute_path(implode(DIRECTORY_SEPARATOR, array_reverse($tail)));
+}
+
+/**
+ * Collapse "." and ".." path segments without requiring the path to exist.
+ */
+function agent2wp_normalize_absolute_path(string $path): string
+{
+    $path = str_replace(search: '\\', replace: DIRECTORY_SEPARATOR, subject: $path);
+    $is_absolute = str_starts_with($path, DIRECTORY_SEPARATOR);
+    /** @var list<string> $parts */
+    $parts = [];
+
+    foreach (explode(DIRECTORY_SEPARATOR, $path) as $segment) {
+        if ($segment === '' || $segment === '.') {
+            continue;
+        }
+
+        if ($segment === '..') {
+            array_pop($parts);
+            continue;
+        }
+
+        $parts[] = $segment;
+    }
+
+    $normalized = implode(DIRECTORY_SEPARATOR, $parts);
+    if ($is_absolute) {
+        return DIRECTORY_SEPARATOR . $normalized;
+    }
+
+    return $normalized === '' ? '.' : $normalized;
+}
+
+/**
+ * Get the sandbox directory path for AI-written PHP plugins.
+ *
+ * The sandbox is an operational boundary for generated PHP: it gives Agent2Wp
+ * one place to load AI-written PHP files from, disable them, and recover from
+ * crashes. It is not a security isolation boundary for all filesystem writes.
+ * Authenticated Agent2Wp administrators may intentionally read, write, edit,
+ * upload, and delete non-PHP files elsewhere under the configured filesystem
+ * base directory.
+ *
+ * @param bool $ensure_exists Whether to create the directory if it doesn't exist.
+ * @return string Absolute path to the sandbox directory (with trailing slash).
+ */
+function agent2wp_get_sandbox_dir($ensure_exists = false)
+{
+    if ($ensure_exists && !is_dir(AGENT2WP_SANDBOX_DIR)) {
+        wp_mkdir_p(AGENT2WP_SANDBOX_DIR);
+    }
+
+    return AGENT2WP_SANDBOX_DIR;
+}
+
+/**
+ * Validate that a resolved path is inside the sandbox directory.
+ *
+ * @param string $resolved The resolved absolute path to check.
+ * @return true|WP_Error True if inside the sandbox, WP_Error otherwise.
+ */
+function agent2wp_validate_sandbox_path($resolved)
+{
+    $sandbox_dir = agent2wp_get_sandbox_dir();
+    $real_sandbox = realpath($sandbox_dir);
+    if ($real_sandbox === false) {
+        return new WP_Error('sandbox_not_found', __('The sandbox directory does not exist.', domain: 'agent2wp'));
+    }
+
+    $real_resolved = realpath($resolved);
+    if ($real_resolved === false) {
+        $real_resolved = $resolved;
+    }
+
+    if (!agent2wp_path_is_child_of_directory($real_resolved, $real_sandbox)) {
+        return new WP_Error('outside_sandbox', sprintf(
+            /* translators: %s: sandbox directory path */
+            __('Only files inside the sandbox (%s) can be modified.', domain: 'agent2wp'),
+            $sandbox_dir,
+        ));
+    }
+
+    return true;
+}
+
+/**
+ * Check that a resolved PHP-execution path is inside the sandbox directory.
+ *
+ * This is deliberately scoped to files that Agent2Wp may execute as PHP or
+ * files that can alter PHP execution. Non-PHP filesystem access outside the
+ * sandbox is expected behavior, not a sandbox bypass.
+ *
+ * @param string $resolved Absolute resolved path to the PHP file.
+ * @return bool|WP_Error True if valid, WP_Error if outside sandbox.
+ */
+function agent2wp_check_php_sandbox(string $resolved): bool|WP_Error
+{
+    $sandbox_dir = agent2wp_get_sandbox_dir(ensure_exists: false);
+    $real_sandbox = realpath($sandbox_dir);
+    $parent_dir = realpath(dirname($resolved));
+
+    // If sandbox doesn't exist yet, compare normalized paths.
+    if ($real_sandbox === false) {
+        $real_sandbox = rtrim(string: $sandbox_dir, characters: '/\\');
+    }
+    if ($parent_dir === false) {
+        $parent_dir = dirname($resolved);
+    }
+
+    if (!agent2wp_path_is_within_directory($parent_dir, $real_sandbox)) {
+        return new WP_Error('php_sandbox_required', sprintf(
+            'PHP files and PHP execution control files can only be written to the sandbox directory: %s. Use a path like "wp-content/agent2wp-sandbox/my-feature.php".',
+            $sandbox_dir,
+        ));
+    }
+
+    return true;
+}
+
+/**
+ * Check whether a path can directly affect PHP execution and must stay in the sandbox.
+ *
+ * Do not broaden this to every writable file path unless the product model
+ * changes. The sandbox is not intended to isolate all filesystem operations.
+ */
+function agent2wp_path_requires_php_sandbox(string $resolved): bool
+{
+    $filename = strtolower(basename($resolved));
+    $extension = strtolower(pathinfo($resolved, PATHINFO_EXTENSION));
+
+    if ($extension === 'php') {
+        return true;
+    }
+
+    return in_array(
+        $filename,
+        [
+            '.htaccess',
+            '.php.ini',
+            '.user.ini',
+            'php.ini',
+            'web.config',
+        ],
+        strict: true,
+    );
+}
+
+/**
+ * Enforce the sandbox boundary for files that can affect PHP execution.
+ *
+ * Returning true for ordinary non-PHP files is intentional.
+ */
+function agent2wp_check_php_execution_sandbox(string $resolved): bool|WP_Error
+{
+    if (!agent2wp_path_requires_php_sandbox($resolved)) {
+        return true;
+    }
+
+    return agent2wp_check_php_sandbox($resolved);
+}
+
+/**
+ * Reject writes through a final path symlink.
+ */
+function agent2wp_reject_final_path_symlink(string $resolved): bool|WP_Error
+{
+    if (!is_link($resolved)) {
+        return true;
+    }
+
+    return new WP_Error('symlink_write_rejected', sprintf('Refusing to write through symlink path: %s', $resolved));
+}
+
+/**
+ * Check whether a path is equal to or contained by a directory boundary.
+ */
+function agent2wp_path_is_within_directory(string $path, string $directory): bool
+{
+    $normalized_path = agent2wp_normalize_boundary_path($path);
+    $normalized_directory = agent2wp_normalize_boundary_path($directory);
+
+    if ($normalized_path === $normalized_directory) {
+        return true;
+    }
+
+    return agent2wp_path_is_child_of_normalized_directory($normalized_path, $normalized_directory);
+}
+
+/**
+ * Check whether a path is contained by a directory boundary, excluding the directory itself.
+ */
+function agent2wp_path_is_child_of_directory(string $path, string $directory): bool
+{
+    return agent2wp_path_is_child_of_normalized_directory(
+        agent2wp_normalize_boundary_path($path),
+        agent2wp_normalize_boundary_path($directory),
+    );
+}
+
+/**
+ * Normalize path separators for directory-boundary comparisons.
+ */
+function agent2wp_normalize_boundary_path(string $path): string
+{
+    $normalized = rtrim(string: str_replace(search: '\\', replace: '/', subject: $path), characters: '/');
+
+    return $normalized === '' ? '/' : $normalized;
+}
+
+/**
+ * Check whether a normalized path is contained by a normalized directory.
+ */
+function agent2wp_path_is_child_of_normalized_directory(string $normalized_path, string $normalized_directory): bool
+{
+    if ($normalized_directory === '/') {
+        return str_starts_with($normalized_path, '/');
+    }
+
+    return str_starts_with($normalized_path, $normalized_directory . '/');
+}
+
+/**
+ * Create a parent directory and return the list of directories that were created.
+ *
+ * @param string $parent_dir Absolute path to the parent directory.
+ * @return array|WP_Error List of directories created, or WP_Error on failure.
+ */
+function agent2wp_ensure_parent_dir(string $parent_dir): array|WP_Error
+{
+    if (is_dir($parent_dir)) {
+        return [];
+    }
+
+    // Collect which directories will be created.
+    $dir_to_check = $parent_dir;
+    $dirs_to_create = [];
+    while (!is_dir($dir_to_check)) {
+        $dirs_to_create[] = $dir_to_check;
+        $dir_to_check = dirname($dir_to_check);
+    }
+    $directories_created = array_reverse($dirs_to_create);
+
+    if (!mkdir(directory: $parent_dir, permissions: 0755, recursive: true)) {
+        return new WP_Error('mkdir_failed', sprintf('Failed to create directory: %s', $parent_dir));
+    }
+
+    return $directories_created;
+}
+
+/**
+ * Check whether a filename ends with the ".disabled" suffix.
+ *
+ * @param string $path File path to check.
+ * @return bool
+ */
+function agent2wp_is_disabled_file($path)
+{
+    return str_ends_with($path, '.disabled');
+}
+
+/**
+ * Check whether the AI abilities are enabled via the settings option.
+ *
+ * @return bool
+ */
+function agent2wp_is_enabled()
+{
+    /** @var mixed $value */
+    $value = get_option('agent2wp_ai_abilities_enabled', default_value: false);
+    if ($value !== '1' && $value !== true) {
+        return false;
+    }
+
+    // Abilities are locked to the domain they were enabled on.
+    /** @var string $locked_domain */
+    $locked_domain = get_option('agent2wp_ai_abilities_domain', default_value: '');
+    $current_domain = (string) wp_parse_url(home_url(), PHP_URL_HOST);
+
+    return $locked_domain === $current_domain;
+}
+
+/**
+ * Heuristic: does this site look like a production environment?
+ *
+ * Default to production when in doubt — the warning's job is to prompt the user to think
+ * twice before enabling AI Abilities on something live. Hostnames and `wp_get_environment_type()`
+ * results that strongly suggest staging/dev/local short-circuit to `false`.
+ *
+ * @return bool
+ */
+function agent2wp_looks_like_production(): bool
+{
+    $host = (string) wp_parse_url(home_url(), PHP_URL_HOST);
+    $host = strtolower($host);
+    if ($host === '') {
+        return true;
+    }
+
+    // Strip an eventual port suffix.
+    $colon_pos = strpos(haystack: $host, needle: ':');
+    if ($colon_pos !== false) {
+        $host = substr($host, offset: 0, length: $colon_pos);
+    }
+
+    // No dot at all (e.g. "localhost", "wordpress") → not production.
+    if (!str_contains($host, '.')) {
+        return false;
+    }
+
+    // IP literals → not production.
+    if (filter_var($host, FILTER_VALIDATE_IP) !== false) {
+        return false;
+    }
+
+    $segments = explode('.', $host);
+    $tld = end($segments);
+
+    /** @var array<int, string> $non_prod_tlds */
+    $non_prod_tlds = apply_filters('agent2wp_non_production_tlds', [
+        'dev',
+        'local',
+        'staging',
+        'test',
+        'example',
+        'invalid',
+        'backup',
+    ]);
+
+    if (in_array($tld, $non_prod_tlds, strict: true)) {
+        return false;
+    }
+
+    /** @var array<int, string> $non_prod_subdomain_segments */
+    $non_prod_subdomain_segments = apply_filters('agent2wp_non_production_subdomain_segments', [
+        'dev',
+        'local',
+        'test',
+        'staging',
+        'stage',
+        'stg',
+        'wp-staging',
+        'wpstaging',
+        'development',
+        'wptest',
+        'backup',
+        'preview',
+        'preprod',
+        'qa',
+        'uat',
+        'sandbox',
+        'demo',
+        'beta',
+        'mirror',
+    ]);
+
+    foreach ($segments as $segment) {
+        if (in_array($segment, $non_prod_subdomain_segments, strict: true)) {
+            return false;
+        }
+    }
+
+    /** @var array<int, string> $non_prod_keyword_regex_words */
+    $non_prod_keyword_regex_words = apply_filters('agent2wp_non_production_keyword_words', [
+        'test',
+        'dev',
+        'staging',
+        'stage',
+        'stg',
+        'local',
+        'wp-staging',
+        'development',
+        'wptest',
+        'backup',
+        'preview',
+        'preprod',
+        'sandbox',
+        'demo',
+        'beta',
+    ]);
+
+    $alternation = implode('|', array_map(static fn(string $w): string => preg_quote(
+        str: $w,
+        delimiter: '/',
+    ), $non_prod_keyword_regex_words));
+    if ($alternation !== '' && preg_match('/\b(?:' . $alternation . ')[0-9]*\b/i', $host) === 1) {
+        return false;
+    }
+
+    /** @var array<int, string> $non_prod_host_suffixes */
+    $non_prod_host_suffixes = apply_filters('agent2wp_production_host_patterns', [
+        'wpengine.com',
+        'wpenginepowered.com',
+        'sg-host.com',
+        'cloudwaysapps.com',
+        'closte.com',
+        'runcloud.link',
+        'kinsta.cloud',
+        'pantheonsite.io',
+        'onrocket.site',
+        'pressdns.com',
+        'bigscoots-staging.com',
+        'flywheelstaging.com',
+        'wpstage.net',
+        'wpserveur.net',
+        'myftpupload.com',
+        'myraidbox.de',
+        'elementor.cloud',
+        'lndo.site',
+        'ddev.site',
+        'instawp.co',
+        'instawp.link',
+        'instawp.xyz',
+        'tastewp.com',
+        'mystagingwebsite.com',
+        'wpcomstaging.com',
+        'convesio.cloud',
+        '10web.io',
+        'plesk.page',
+    ]);
+
+    foreach ($non_prod_host_suffixes as $suffix) {
+        if ($suffix !== '' && str_ends_with($host, $suffix)) {
+            return false;
+        }
+    }
+
+    if (function_exists('wp_get_environment_type')) {
+        $env = wp_get_environment_type();
+        if (in_array($env, ['staging', 'development', 'local'], strict: true)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/**
+ * Heuristic: is this site likely served over plain HTTP on a local hostname?
+ *
+ * WordPress core blocks Application Passwords on HTTP unless `WP_ENVIRONMENT_TYPE` is set to
+ * 'local'. Detecting this lets us surface the exact wp-config snippet the user needs.
+ */
+function agent2wp_likely_local_http(): bool
+{
+    $home = home_url();
+    if (!str_starts_with(strtolower($home), 'http://')) {
+        return false;
+    }
+
+    $host = strtolower((string) wp_parse_url($home, PHP_URL_HOST));
+    if ($host === '') {
+        return false;
+    }
+
+    /** @var array<int, string> $local_substrings */
+    $local_substrings = apply_filters('agent2wp_self_signed_host_patterns', [
+        '.local',
+        '.test',
+        'localhost',
+        '.lndo.site',
+        '.ddev.site',
+    ]);
+
+    foreach ($local_substrings as $needle) {
+        if ($needle !== '' && str_contains($host, $needle)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/**
+ * Heuristic: is this site likely served from an HTTPS endpoint with a self-signed certificate?
+ *
+ * LocalWP, DDEV, Lando and similar dev tools commonly serve `.local` / `.test` hostnames over
+ * HTTPS with self-signed certs. The @automattic/mcp-wordpress-remote npx package rejects such
+ * certs by default, so the MCP client cannot connect unless `NODE_TLS_REJECT_UNAUTHORIZED=0` is
+ * passed in the env. Detecting this lets us inject that env var and warn the user about the trade.
+ */
+function agent2wp_likely_self_signed_https(): bool
+{
+    $home = home_url();
+    if (!str_starts_with(strtolower($home), 'https://')) {
+        return false;
+    }
+
+    $host = strtolower((string) wp_parse_url($home, PHP_URL_HOST));
+    if ($host === '') {
+        return false;
+    }
+
+    /** @var array<int, string> $self_signed_substrings */
+    $self_signed_substrings = apply_filters('agent2wp_self_signed_host_patterns', [
+        '.local',
+        '.test',
+        'localhost',
+        '.lndo.site',
+        '.ddev.site',
+    ]);
+
+    foreach ($self_signed_substrings as $needle) {
+        if ($needle !== '' && str_contains($host, $needle)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/**
+ * Has the current user dismissed the production warning?
+ */
+function agent2wp_production_warning_dismissed(): bool
+{
+    /** @var mixed $value */
+    $value = get_user_meta(get_current_user_id(), key: 'agent2wp_production_warning_dismissed', single: true);
+    return $value === '1' || $value === 1 || $value === true;
+}
+
+/**
+ * Runtime permission check for privileged Agent2Wp administration.
+ */
+function agent2wp_current_user_can_manage(): bool
+{
+    return is_multisite() ? is_super_admin() : current_user_can('manage_options');
+}
+
+/**
+ * Sanitized admin `page` query arg from the current request.
+ */
+function agent2wp_admin_request_page(): string
+{
+    return is_string($_GET['page'] ?? null) ? sanitize_key(wp_unslash($_GET['page'])) : '';
+}
+
+/**
+ * Sanitized GET string from the current admin request.
+ */
+function agent2wp_admin_request_get_string(string $key, string $default = ''): string
+{
+    $raw = $_GET[$key] ?? null;
+    if (!is_string($raw)) {
+        return $default;
+    }
+
+    return sanitize_text_field(wp_unslash($raw));
+}
+
+/**
+ * Whether a GET flag is present and truthy (`1`, `true`, `yes`, `on`).
+ */
+function agent2wp_admin_request_flag(string $key): bool
+{
+    $raw = $_GET[$key] ?? null;
+    if ($raw === null) {
+        return false;
+    }
+
+    return filter_var(is_scalar($raw) ? wp_unslash((string) $raw) : '', FILTER_VALIDATE_BOOLEAN);
+}
+
+/**
+ * Runtime permission check for a specific user.
+ */
+function agent2wp_user_can_manage(int|WP_User $user): bool
+{
+    $user_id = $user instanceof WP_User ? $user->ID : $user;
+    if ($user_id <= 0) {
+        return false;
+    }
+
+    $manage_capability = 'manage_options';
+
+    return is_multisite() ? is_super_admin($user_id) : user_can($user, $manage_capability);
+}
+
+/**
+ * Capability string for WordPress APIs that cannot accept a boolean callback.
+ */
+function agent2wp_manage_capability(): string
+{
+    return is_multisite() ? 'manage_network_options' : 'manage_options';
+}
+
+/**
+ * Return the persisted per-ability hub rules.
+ *
+ * @return array<string, array{disabled: bool}>
+ */
+function agent2wp_get_ability_rules(): array
+{
+    /** @var mixed $stored */
+    $stored = get_option('agent2wp_ability_rules', default_value: []);
+    if (!is_array($stored)) {
+        return [];
+    }
+
+    $rules = [];
+    /** @var mixed $rule */
+    foreach ($stored as $ability_name => $rule) {
+        if (!is_string($ability_name) || !is_array($rule) || !agent2wp_is_valid_ability_name($ability_name)) {
+            continue;
+        }
+        $rules[$ability_name] = [
+            'disabled' => in_array($rule['disabled'] ?? false, [true, '1', 1], strict: true),
+        ];
+    }
+
+    return $rules;
+}
+
+/**
+ * Persist the per-ability hub rules.
+ *
+ * @param array<string, array{disabled?: bool}> $rules
+ */
+function agent2wp_update_ability_rules(array $rules): void
+{
+    $clean = [];
+    foreach ($rules as $ability_name => $rule) {
+        if (!agent2wp_is_valid_ability_name($ability_name)) {
+            continue;
+        }
+        if (!($rule['disabled'] ?? false)) {
+            continue;
+        }
+        $clean[$ability_name] = ['disabled' => true];
+    }
+
+    update_option('agent2wp_ability_rules', $clean, autoload: false);
+}
+
+function agent2wp_is_valid_ability_name(string $ability_name): bool
+{
+    return preg_match('/^[a-z0-9-]+\/[a-z0-9-\/]+$/', $ability_name) === 1;
+}
+
+function agent2wp_ability_is_hub_protected(string $ability_name): bool
+{
+    return str_starts_with($ability_name, 'mcp-adapter/');
+}
+
+/**
+ * Whether the current request is rendering the Abilities Hub admin screen.
+ *
+ * The Hub manages every ability, disabled ones included, so it must see the
+ * full registry; the disable policy is therefore not enforced while it renders.
+ */
+function agent2wp_is_ability_hub_screen(): bool
+{
+    if (!is_admin()) {
+        return false;
+    }
+
+    return agent2wp_admin_request_page() === 'agent2wp-abilities';
+}
+
+/**
+ * Apply persisted Abilities Hub rules after all providers have registered.
+ */
+function agent2wp_apply_ability_policy(): void
+{
+    if (!function_exists('wp_get_abilities') || !function_exists('wp_unregister_ability')) {
+        return;
+    }
+
+    // The Hub screen lists disabled abilities with their full metadata, so do not
+    // unregister them there. Enforcement still runs on REST/MCP and front-end
+    // requests, which is where ability exposure actually matters.
+    if (agent2wp_is_ability_hub_screen()) {
+        return;
+    }
+
+    $rules = agent2wp_get_ability_rules();
+    if ($rules === []) {
+        return;
+    }
+
+    foreach (wp_get_abilities() as $ability) {
+        agent2wp_apply_ability_policy_rule($ability, $rules);
+    }
+}
+
+/**
+ * @param array<string, array{disabled: bool}> $rules
+ */
+function agent2wp_apply_ability_policy_rule(WP_Ability $ability, array $rules): void
+{
+    $ability_name = $ability->get_name();
+    $rule = $rules[$ability_name] ?? null;
+    if ($rule === null) {
+        return;
+    }
+
+    if ($rule['disabled'] && !agent2wp_ability_is_hub_protected($ability_name)) {
+        wp_unregister_ability($ability_name);
+    }
+}
+
+/**
+ * Handle the dismiss-production-warning form submission. Called from admin_init.
+ */
+function agent2wp_handle_dismiss_production_warning(): void
+{
+    if (($_POST['agent2wp_dismiss_production_warning'] ?? null) === null) {
+        return;
+    }
+
+    if (!agent2wp_current_user_can_manage()) {
+        return;
+    }
+
+    check_admin_referer('agent2wp_dismiss_production_warning');
+
+    update_user_meta(get_current_user_id(), meta_key: 'agent2wp_production_warning_dismissed', meta_value: '1');
+
+    wp_safe_redirect(admin_url('admin.php?page=agent2wp-connect'));
+    exit();
+}
+
+/**
+ * Check whether abilities are nominally enabled but inactive due to a domain mismatch.
+ *
+ * @return bool
+ */
+function agent2wp_is_domain_mismatch()
+{
+    /** @var mixed $value */
+    $value = get_option('agent2wp_ai_abilities_enabled', default_value: false);
+    if ($value !== '1' && $value !== true) {
+        return false;
+    }
+
+    /** @var string $locked_domain */
+    $locked_domain = get_option('agent2wp_ai_abilities_domain', default_value: '');
+    $current_domain = (string) wp_parse_url(home_url(), PHP_URL_HOST);
+
+    return $locked_domain !== $current_domain;
+}
+
+/**
+ * Report whether WordPress Application Passwords are available, and why not if not.
+ *
+ * Distinguishes between the HTTPS/local-env requirement (`wp_is_application_passwords_supported()`)
+ * and a filter-based override (typical of security plugins hooking `wp_is_application_passwords_available`).
+ *
+ * @return array{available: bool, reason: 'available'|'unsupported'|'filtered', message: string}
+ */
+function agent2wp_app_passwords_status(): array
+{
+    if (wp_is_application_passwords_available()) {
+        return ['available' => true, 'reason' => 'available', 'message' => ''];
+    }
+
+    if (!wp_is_application_passwords_supported()) {
+        return [
+            'available' => false,
+            'reason' => 'unsupported',
+            'message' => __(
+                'Application Passwords require HTTPS or WP_ENVIRONMENT_TYPE set to "local".',
+                domain: 'agent2wp',
+            ),
+        ];
+    }
+
+    return [
+        'available' => false,
+        'reason' => 'filtered',
+        'message' => __(
+            'Application Passwords have been disabled on this site, likely by a security plugin. Check your security plugin settings (e.g. Solid Security, Wordfence, All In One WP Security) and re-enable Application Passwords to continue.',
+            domain: 'agent2wp',
+        ),
+    ];
+}
+
+/**
+ * Build a combined date/time format string from WordPress settings.
+ *
+ * Falls back to 'Y-m-d H:i:s' if either format is empty.
+ *
+ * @param string $fallback Optional fallback format.
+ * @return string
+ */
+function agent2wp_get_datetime_format($fallback = 'Y-m-d H:i:s')
+{
+    $date_format = (string) get_option('date_format');
+    $time_format = (string) get_option('time_format');
+
+    if ($date_format === '' || $time_format === '') {
+        return $fallback;
+    }
+
+    return $date_format . ' ' . $time_format;
+}
+
+/**
+ * Permission callback for privileged Agent2Wp administration.
+ *
+ * @return bool
+ */
+function agent2wp_permission_callback()
+{
+    if (!agent2wp_is_enabled()) {
+        return false;
+    }
+
+    return agent2wp_current_user_can_manage();
+}
+
+/**
+ * Return a bearer token from a REST request header.
+ */
+function agent2wp_rest_header_token(WP_REST_Request $request, string $header_name): string
+{
+    $header_token = $request->get_header($header_name);
+    if (is_string($header_token) && trim($header_token) !== '') {
+        return trim($header_token);
+    }
+
+    $authorization = $request->get_header('authorization');
+    if (!is_string($authorization)) {
+        return '';
+    }
+
+    $matches = [];
+    if (preg_match('/^\s*Bearer\s+(.+?)\s*$/i', $authorization, $matches) !== 1) {
+        return '';
+    }
+
+    return trim($matches[1]);
+}
+
+/**
+ * Detect active languages from multilingual plugins (WPML, Polylang, TranslatePress).
+ *
+ * @return array{plugin: string, languages: string[]}|null Plugin name and language codes, or null if no multilingual plugin is active.
+ */
+function agent2wp_get_active_languages()
+{
+    // WPML.
+    if (function_exists('icl_get_languages')) {
+        /** @var array<string, array{language_code: string}>|false $wpml_languages */
+        $wpml_languages = icl_get_languages('skip_missing=0');
+        if (is_array($wpml_languages)) {
+            return ['plugin' => 'WPML', 'languages' => array_column($wpml_languages, 'language_code')];
+        }
+    }
+
+    // Polylang.
+    if (function_exists('pll_languages_list')) {
+        /** @var string[]|false $languages */
+        $languages = pll_languages_list();
+        if (is_array($languages)) {
+            return ['plugin' => 'Polylang', 'languages' => $languages];
+        }
+    }
+
+    // TranslatePress.
+    if (class_exists('TRP_Translate_Press')) {
+        /** @var array{translation-languages?: string[]} $trp_settings */
+        $trp_settings = get_option('trp_settings', default_value: []);
+        return ['plugin' => 'TranslatePress', 'languages' => $trp_settings['translation-languages'] ?? []];
+    }
+
+    return null;
+}
+
+/**
+ * Markdown lines that report the active theme and ask the user to choose a
+ * working mode before content/layout work. Page builders and block libraries
+ * are intentionally not hardcoded: the AI identifies them from the
+ * installed-plugins inventory above, which stays correct as new ones ship.
+ *
+ * @return list<string>
+ */
+function agent2wp_build_building_context_lines(): array
+{
+    $theme = wp_get_theme();
+    $theme_desc = $theme->get('Name');
+    if ($theme->get_template() !== $theme->get_stylesheet()) {
+        $parent = $theme->parent();
+        $theme_desc .=
+            ' (child theme of ' . ($parent instanceof WP_Theme ? $parent->get('Name') : $theme->get_template()) . ')';
+    }
+
+    return [
+        '## Building pages and layout',
+        '',
+        'Active theme: ' . $theme_desc . '.',
+        '',
+        'Before building or restructuring a page\'s content or layout, check the installed-plugins inventory above for page builders (which replace the editor) and block libraries (which extend Gutenberg), then ask the user which approach to use: a page builder, Gutenberg, classic theme templates, a child theme, or a custom theme. Ask once and follow that choice; do not mix approaches (e.g. Gutenberg blocks in a page-builder page).',
+    ];
+}
+
+/**
+ * Build the MCP server instructions sent to AI agents during initialization.
+ *
+ * Includes environment info (PHP/WP versions, plugins) and guidance on using
+ * WordPress-native features instead of hardcoding data in PHP.
+ *
+ * @return string
+ */
+function agent2wp_build_server_instructions()
+{
+    $lines = [
+        'Agent2Wp gives you unrestricted control over this WordPress installation.',
+        '',
+        '## Environment',
+        '',
+        'WordPress ' . get_bloginfo('version') . ' — PHP ' . PHP_VERSION . ' — Locale: ' . get_locale(),
+    ];
+
+    // Detect active languages from multilingual plugins.
+    $multilingual = agent2wp_get_active_languages();
+    if ($multilingual !== null && $multilingual['languages'] !== []) {
+        $lines[] = 'Multilingual (' . $multilingual['plugin'] . '): ' . implode(', ', $multilingual['languages']);
+    }
+
+    $lines[] = '';
+
+    if (function_exists('get_plugins')) {
+        /** @var array<string, array{Name?: string, Version?: string}> $all_plugins */
+        $all_plugins = get_plugins();
+        if ($all_plugins !== []) {
+            $lines[] = 'Installed plugins:';
+            foreach ($all_plugins as $plugin_file => $plugin_data) {
+                $name = $plugin_data['Name'] ?? $plugin_file;
+                $version = $plugin_data['Version'] ?? '';
+                $version_suffix = $version !== '' ? ' v' . $version : '';
+                $active = is_plugin_active($plugin_file) ? 'active' : 'inactive';
+                $lines[] = '- ' . $name . $version_suffix . ' (' . $active . ')';
+            }
+            $lines[] = '';
+        }
+    }
+
+    $lines = array_merge($lines, [
+        '## WordPress-native development',
+        '',
+        'IMPORTANT: Prefer WordPress-native features to store and manage data.',
+        'Do not hardcode content in PHP arrays when WordPress has a better mechanism:',
+        '- Custom post types (register_post_type) for structured content (unless a data-modeling plugin owns it — see below)',
+        '- Taxonomies (register_taxonomy) for categorization (same caveat)',
+        '- Post meta / custom fields (update_post_meta) for additional data on posts (same caveat)',
+        '- Options API (update_option) for settings and configuration',
+        '- Custom database tables via $wpdb only when the above are insufficient',
+        '',
+        'Take advantage of active plugins. If a data-modeling plugin is in the',
+        'installed-plugins inventory above (ACF / ACF Pro, JetEngine, Pods, ACPT,',
+        'Meta Box, Toolset, Custom Post Type UI, WooCommerce, etc.), use it for the',
+        'task it owns — never write a custom register_post_type / register_taxonomy /',
+        'register_meta call in PHP for content the active plugin can model through its',
+        'own UI/API. Splitting the source of truth between custom PHP and a plugin UI',
+        'produces broken slugs, labels, and capabilities the next time the user touches',
+        'either side, and that recovery is hard. If two or more such plugins are active,',
+        'ask the user which one to use before persisting anything.',
+        '',
+        'Use WordPress hooks (actions/filters), template hierarchy, and REST API',
+        'conventions. Write code that integrates with WordPress, not code that ignores it.',
+    ]);
+
+    $lines = array_merge($lines, agent2wp_build_building_context_lines());
+
+    return implode("\n", $lines);
+}
+
+/**
+ * Render the branded admin header with logo and background color.
+ */
+function agent2wp_render_admin_header(): void
+{ ?>
+    <style>
+        .agent2wp-admin-header-wrap {
+            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);
+            margin: -1px 0 0 -20px;
+            padding: 20px 20px 20px 22px;
+            border-bottom: 2px solid #6366f1;
+        }
+        .agent2wp-admin-header {
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+        }
+        .agent2wp-admin-header img {
+            max-height: 40px;
+        }
+        @media screen and (max-width: 782px) {
+            .agent2wp-admin-header-wrap {
+                margin: -1px 0 0 -10px;
+                padding: 15px;
+            }
+            .agent2wp-admin-header {
+                flex-direction: column;
+                text-align: center;
+            }
+        }
+    </style>
+    <div class="agent2wp-admin-header-wrap">
+        <div class="agent2wp-admin-header">
+            <img src="<?php echo
+                esc_url((string) AGENT2WP_PLUGIN_URL . 'assets/agent2wp_logo.svg')
+            ; ?>" alt="Agent2Wp" width="200" height="40">
+        </div>
+    </div>
+    <?php }
