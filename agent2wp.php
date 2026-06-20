@@ -8,7 +8,7 @@ declare(strict_types=1);
 /**
  * Plugin Name: Agent2Wp
  * Plugin URI: https://github.com/Taibur-Rahaman/Agent2Wp
- * Description: Expert MCP bridge for WordPress — AI agents execute PHP, manage files, run WP-CLI, and operate content with full Expert Suite unlocked. Staging and development only.
+ * Description: WordPress MCP plugin — connect Claude, Cursor & AI agents. PHP, WP-CLI, files, posts, Elementor skills. Expert Suite included. Staging/dev only.
  * Version: 2.0.0
  * Requires at least: 6.9
  * Requires PHP: 8.0

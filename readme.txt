@@ -1,6 +1,6 @@
 === Agent2Wp ===
 Contributors: taiburrahaman
-Tags: mcp, ai, agent, wordpress, automation
+Tags: mcp, model-context-protocol, ai, ai-agents, agent, wordpress, wordpress-plugin, automation, cursor, claude, wp-cli, elementor, gutenberg, woocommerce, php, artificial-intelligence
 Requires at least: 6.9
 Tested up to: 6.9
 Requires PHP: 8.0
@@ -8,11 +8,13 @@ Stable tag: 2.0.0
 License: Agent2Wp-RSL-1.0
 License URI: https://github.com/Taibur-Rahaman/Agent2Wp/blob/main/COPYRIGHT.md
 
-Expert MCP bridge for WordPress — AI agents execute PHP, manage files, run WP-CLI, and operate content with full Expert Suite unlocked.
+WordPress MCP plugin — connect Claude, Cursor, and AI agents to your site. PHP execution, WP-CLI, filesystem, posts, Elementor skills. Expert Suite included.
 
 == Description ==
 
-Agent2Wp connects MCP clients (Cursor, Claude Desktop, VS Code, and others) directly to your WordPress site. Agents authenticate with application passwords and use the bundled WordPress MCP Adapter to call abilities on your server.
+**Agent2Wp** is a WordPress MCP (Model Context Protocol) plugin that lets AI assistants — Claude Desktop, Cursor, Copilot, VS Code, and other MCP clients — control your WordPress site securely via application passwords.
+
+Install from [GitHub Releases](https://github.com/Taibur-Rahaman/Agent2Wp/releases/latest), activate, click **Start Agent2Wp**, and paste the MCP config into your AI client. No SaaS proxy; all requests hit your server.
 
 **Expert Suite is included** — no license keys, no upsells, no tier gating.
 
